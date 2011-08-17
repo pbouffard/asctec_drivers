@@ -93,6 +93,11 @@ namespace asctec
     if (!nh_private_.getParam ("offset_CONTROL", offset_CONTROL_))
       offset_CONTROL_ = 0;
 
+    double deadman_timeout;
+    if (!nh_private_.getParam ("deadman_timeout", deadman_timeout))
+      deadman_timeout = 0;
+    deadman_timeout_ = ros::Duration(deadman_timeout);
+
     if (freq_ <= 0.0)
       ROS_FATAL ("Invalid frequency param");
 
@@ -106,6 +111,7 @@ namespace asctec
 
     ros::NodeHandle nh_rawdata(nh_, asctec::ROS_NAMESPACE);    // publish to "asctec" namespace
     telemetry_ = new asctec::Telemetry(nh_rawdata);
+
 
     // Diagnostics
     diag_updater_.add("AscTec Autopilot Status", this, &AutoPilot::diagnostics);
@@ -156,8 +162,29 @@ namespace asctec
     //ROS_INFO ("TX: %03.3f Bps",float(serialInterface_->serialport_bytes_tx_)/1000*freq_);
     //serialInterface_->serialport_bytes_rx_ = 0;
     //serialInterface_->serialport_bytes_tx_ = 0;
+    ros::Time now = e.current_real;
+    ros::Duration latestControlPeriod;
+    if (telemetry_->lastControlInputTime_.isZero())
+      latestControlPeriod = ros::Duration(0);
+    else
+      latestControlPeriod = now - telemetry_->lastControlInputTime_;
+
+    if (latestControlPeriod > maxControlInputPeriod_)
+      maxControlInputPeriod_ = latestControlPeriod;
+
+    if (not deadman_timeout_.isZero() // zero timeout means don't check at all
+        and not telemetry_->lastControlInputTime_.isZero() // if this is zero then we haven't gotten a control packet yet
+        and latestControlPeriod >= deadman_timeout_ // exceeded the limit
+        and not telemetry_->estop_ // haven't already e-stopped
+        )
+    {
+      ROS_ERROR("CTRL_INPUT timeout exceeded, sending E-STOP!");
+      telemetry_->estop_ = true;
+    }
+
     telemetry_->publishPackets();
     telemetry_->controlCount_++;
+
     if (telemetry_->estop_)
     {
       serialInterface_->sendEstop(telemetry_);
@@ -189,6 +216,7 @@ namespace asctec
     stat.add("Serial Bytes TX", serialInterface_->serialport_bytes_tx_);
     stat.add("Serial Bytes RX", serialInterface_->serialport_bytes_rx_);
     stat.add("Last spin() duration [s]", last_spin_time_);
+    stat.add("Largest time between CTRL_INPUT messages", maxControlInputPeriod_.toSec());
   }
 
 }

@@ -493,6 +493,7 @@ namespace asctec
     CTRL_INPUT_.thrust = msg.thrust;
     CTRL_INPUT_.ctrl = msg.ctrl;
     CTRL_INPUT_.chksum = msg.chksum;
+    lastControlInputTime_ = ros::Time::now();
     //dumpCTRL_INPUT();
   }
 }

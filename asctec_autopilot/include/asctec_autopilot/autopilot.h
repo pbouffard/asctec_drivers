@@ -79,6 +79,8 @@ namespace asctec
       bool enable_CONTROL_;
       int interval_CONTROL_;
       int offset_CONTROL_;
+      ros::Duration deadman_timeout_;
+      ros::Duration maxControlInputPeriod_;
 
       SerialInterface* serialInterface_;
       Telemetry* telemetry_;

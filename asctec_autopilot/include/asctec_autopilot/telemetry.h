@@ -157,6 +157,8 @@ namespace asctec
     ros::Subscriber controlSubscriber_;
     ros::Subscriber estopSubscriber_;
 
+    ros::Time lastControlInputTime_;
+
     //packet descriptors
     static const uint8_t PD_IMURAWDATA = 0x01;
     static const uint8_t PD_LLSTATUS = 0x02;
